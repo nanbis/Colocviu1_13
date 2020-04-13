@@ -2,8 +2,10 @@ package ro.pub.cs.systems.eim.Colocviu1_13;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -17,6 +19,8 @@ public class Colocviu1_13MainActivity extends AppCompatActivity {
     private ButtonClickListener buttonClickListener = new ButtonClickListener();
     private NavigateListener navigateListener = new NavigateListener();
 
+    int serviceStatus = Constants.SERVICE_STOPPED;
+
     ArrayList<String> pressed = new ArrayList<String>();
 
     Button north, south, west, east, navigate;
@@ -24,6 +28,16 @@ public class Colocviu1_13MainActivity extends AppCompatActivity {
 
     String to_view = "";
     int total_pressed = 0;
+
+    private IntentFilter intentFilter = new IntentFilter();
+
+    private MessageBroadcastReceiver messageBroadcastReceiver = new MessageBroadcastReceiver();
+    private class MessageBroadcastReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(Constants.SERVICE_ACTION, intent.getStringExtra(Constants.BROADCAST_RECEIVER_EXTRA));
+        }
+    }
 
     private class NavigateListener implements View.OnClickListener {
         @Override
@@ -87,6 +101,13 @@ public class Colocviu1_13MainActivity extends AppCompatActivity {
             }
             textView.setText(to_view);
             total_pressed ++;
+
+            if (total_pressed > Constants.THRESHOLD && serviceStatus == Constants.SERVICE_STOPPED) {
+                Intent intent = new Intent(getApplicationContext(), Colocviu1_13Service.class);
+                intent.putExtra(Constants.TO_VIEW_FIELD, to_view);
+                getApplicationContext().startService(intent);
+                serviceStatus = Constants.SERVICE_STARTED;
+            }
         }
     }
 
@@ -139,5 +160,26 @@ public class Colocviu1_13MainActivity extends AppCompatActivity {
             textView.setText(to_view);
             Log.println(2, "NUMARUL SALVAT: ", String.valueOf(total_pressed));
         }
+
+        intentFilter.addAction(Constants.SERVICE_ACTION);
+    }
+
+    @Override
+    protected void onDestroy() {
+        Intent intent = new Intent(this, Colocviu1_13Service.class);
+        stopService(intent);
+        super.onDestroy();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerReceiver(messageBroadcastReceiver, intentFilter);
+    }
+
+    @Override
+    protected void onPause() {
+        unregisterReceiver(messageBroadcastReceiver);
+        super.onPause();
     }
 }
